@@ -1,19 +1,21 @@
-package poll
+package bbolt
 
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/elementsproject/peerswap/poll"
 
 	"go.etcd.io/bbolt"
 )
 
 var POLL_BUCKET = []byte("poll-list")
 
-type pollStore struct {
+type BBoltPollStore struct {
 	db *bbolt.DB
 }
 
-func NewStore(db *bbolt.DB) (*pollStore, error) {
+func NewBBoltPollStore(db *bbolt.DB) (*BBoltPollStore, error) {
 	tx, err := db.Begin(true)
 	if err != nil {
 		return nil, err
@@ -27,10 +29,10 @@ func NewStore(db *bbolt.DB) (*pollStore, error) {
 		return nil, err
 	}
 
-	return &pollStore{db: db}, nil
+	return &BBoltPollStore{db: db}, nil
 }
 
-func (s *pollStore) Update(peerId string, info PollInfo) error {
+func (s *BBoltPollStore) Update(peerId string, info poll.PollInfo) error {
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		infoBytes, err := json.Marshal(info)
 		if err != nil {
@@ -42,13 +44,13 @@ func (s *pollStore) Update(peerId string, info PollInfo) error {
 	})
 }
 
-func (s *pollStore) GetAll() (map[string]PollInfo, error) {
-	pollinfos := map[string]PollInfo{}
+func (s *BBoltPollStore) GetAll() (map[string]poll.PollInfo, error) {
+	pollinfos := map[string]poll.PollInfo{}
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(POLL_BUCKET)
 		return b.ForEach(func(k, v []byte) error {
 			peerId := string(k)
-			var info PollInfo
+			var info poll.PollInfo
 			err := json.Unmarshal(v, &info)
 			if err != nil {
 				return err
@@ -64,12 +66,12 @@ func (s *pollStore) GetAll() (map[string]PollInfo, error) {
 	return pollinfos, nil
 }
 
-func (s *pollStore) RemoveUnseen(olderThan time.Duration) error {
+func (s *BBoltPollStore) RemoveUnseen(olderThan time.Duration) error {
 	now := time.Now()
 	return s.db.Update(func(t *bbolt.Tx) error {
 		b := t.Bucket(POLL_BUCKET)
 		return b.ForEach(func(k, v []byte) error {
-			var info PollInfo
+			var info poll.PollInfo
 			err := json.Unmarshal(v, &info)
 			if err != nil {
 				return err

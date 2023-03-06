@@ -26,6 +26,7 @@ import (
 	"github.com/elementsproject/glightning/gbitcoin"
 	"github.com/elementsproject/glightning/gelements"
 	"github.com/elementsproject/glightning/glightning"
+	bbolt_impl "github.com/elementsproject/peerswap/bbolt"
 	"github.com/elementsproject/peerswap/clightning"
 	"github.com/elementsproject/peerswap/messages"
 	"github.com/elementsproject/peerswap/onchain"
@@ -316,7 +317,7 @@ func run(ctx context.Context, lightningPlugin *clightning.ClightningClient) erro
 		return err
 	}
 
-	pollStore, err := poll.NewStore(swapDb)
+	pollStore, err := bbolt_impl.NewBBoltPollStore(swapDb)
 	if err != nil {
 		return err
 	}

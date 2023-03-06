@@ -2,14 +2,11 @@ package poll
 
 import (
 	"encoding/json"
-	"os"
-	"path"
 	"testing"
 	"time"
 
 	"github.com/elementsproject/peerswap/messages"
 	"github.com/stretchr/testify/assert"
-	"go.etcd.io/bbolt"
 )
 
 type MessengerMock struct {
@@ -50,17 +47,38 @@ func (m *PolicyMock) IsPeerAllowed(peerId string) bool {
 	return m.allowList[m.called-1]
 }
 
-func TestSendMessage(t *testing.T) {
-	dir := t.TempDir()
-	db, err := bbolt.Open(path.Join(dir, "poll-db"), os.ModePerm, nil)
-	if err != nil {
-		t.Fatalf("could not open db: %v", err)
+type PollStoreMock struct {
+	infos map[string]PollInfo
+}
+
+func NewPollStoreMock() *PollStoreMock {
+	return &PollStoreMock{
+		infos: make(map[string]PollInfo),
 	}
-	store, err := NewStore(db)
-	if err != nil {
-		t.Fatalf("could not create store: %v", err)
+}
+
+func (m *PollStoreMock) Update(peerId string, info PollInfo) error {
+	m.infos[peerId] = info
+	return nil
+}
+
+func (m *PollStoreMock) GetAll() (map[string]PollInfo, error) {
+	return m.infos, nil
+}
+
+func (m *PollStoreMock) RemoveUnseen(olderThan time.Duration) error {
+	now := time.Now()
+	for peerid, info := range m.infos {
+		if now.Sub(info.LastSeen) > olderThan {
+			delete(m.infos, peerid)
+		}
 	}
 
+	return nil
+}
+
+func TestSendMessage(t *testing.T) {
+	store := NewPollStoreMock()
 	messenger := &MessengerMock{}
 	policy := &PolicyMock{allowList: []bool{true, false}}
 	peerGetter := &PeerGetterMock{
@@ -89,16 +107,7 @@ func TestSendMessage(t *testing.T) {
 }
 
 func TestRecievePollAndPollRequest(t *testing.T) {
-	dir := t.TempDir()
-	db, err := bbolt.Open(path.Join(dir, "poll-db"), os.ModePerm, nil)
-	if err != nil {
-		t.Fatalf("could not open db: %v", err)
-	}
-	store, err := NewStore(db)
-	if err != nil {
-		t.Fatalf("could not create store: %v", err)
-	}
-
+	store := NewPollStoreMock()
 	messenger := &MessengerMock{}
 	policy := &PolicyMock{allowList: []bool{true, false}}
 	peerGetter := &PeerGetterMock{
@@ -150,20 +159,11 @@ func TestRecievePollAndPollRequest(t *testing.T) {
 }
 
 func TestRemoveUnseen(t *testing.T) {
-	dir := t.TempDir()
-	db, err := bbolt.Open(path.Join(dir, "poll-db"), os.ModePerm, nil)
-	if err != nil {
-		t.Fatalf("could not open db: %v", err)
-	}
-	store, err := NewStore(db)
-	if err != nil {
-		t.Fatalf("could not create store: %v", err)
-	}
-
+	store := NewPollStoreMock()
 	now := time.Now()
 	duration := 10 * time.Millisecond
 
-	err = store.Update("peer", PollInfo{
+	err := store.Update("peer", PollInfo{
 		Assets:      []string{"lbtc", "btc"},
 		PeerAllowed: false,
 		LastSeen:    now,

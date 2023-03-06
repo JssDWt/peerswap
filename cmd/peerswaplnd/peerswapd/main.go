@@ -26,6 +26,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/elementsproject/glightning/gbitcoin"
 	"github.com/elementsproject/glightning/gelements"
+	bbolt_impl "github.com/elementsproject/peerswap/bbolt"
 	"github.com/elementsproject/peerswap/cmd/peerswaplnd"
 	lnd_internal "github.com/elementsproject/peerswap/lnd"
 	"github.com/elementsproject/peerswap/messages"
@@ -335,7 +336,7 @@ func run() error {
 		return err
 	}
 
-	pollStore, err := poll.NewStore(swapDb)
+	pollStore, err := bbolt_impl.NewBBoltPollStore(swapDb)
 	if err != nil {
 		return err
 	}
