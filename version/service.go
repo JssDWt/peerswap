@@ -2,8 +2,6 @@ package version
 
 import (
 	"fmt"
-
-	"go.etcd.io/bbolt"
 )
 
 const (
@@ -15,14 +13,10 @@ type ActiveSwapGetter interface {
 }
 
 type VersionService struct {
-	versionStore *versionStore
+	versionStore VersionStore
 }
 
-func NewVersionService(boltdb *bbolt.DB) (*VersionService, error) {
-	versionStore, err := NewVersionStore(boltdb)
-	if err != nil {
-		return nil, err
-	}
+func NewVersionService(versionStore VersionStore) (*VersionService, error) {
 	return &VersionService{versionStore: versionStore}, nil
 }
 

@@ -322,7 +322,11 @@ func run() error {
 	}
 
 	// Try to upgrade version if needed
-	versionService, err := version.NewVersionService(swapDb)
+	versionStore, err := bbolt_impl.NewBBoltVersionStore(swapDb)
+	if err != nil {
+		return err
+	}
+	versionService, err := version.NewVersionService(versionStore)
 	if err != nil {
 		return err
 	}

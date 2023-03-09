@@ -1,56 +1,31 @@
 package version
 
 import (
-	"github.com/stretchr/testify/assert"
-	"go.etcd.io/bbolt"
-	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func Test_VersionStore(t *testing.T) {
-	// db
-	boltdb, err := bbolt.Open(filepath.Join(t.TempDir(), "swaps"), 0700, nil)
-	if err != nil {
-		t.Fatal(err)
+type mockVersionStore struct {
+	version string
+}
+
+func (vs *mockVersionStore) GetVersion() (string, error) {
+	if vs.version == "" {
+		return "", ErrDoesNotExist
 	}
 
-	versionStore, err := NewVersionStore(boltdb)
-	if err != nil {
-		t.Fatal(err)
-	}
+	return vs.version, nil
+}
 
-	newVersion := "v0.2.0-beta"
-
-	oldVersion, err := versionStore.GetVersion()
-	if err != ErrDoesNotExist && err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, "", oldVersion)
-
-	err = versionStore.SetVersion(newVersion)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	setVersion, err := versionStore.GetVersion()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, newVersion, setVersion)
-
-	boltdb.Close()
+func (vs *mockVersionStore) SetVersion(version string) error {
+	vs.version = version
+	return nil
 }
 
 func Test_VersionService(t *testing.T) {
-	boltdb, err := bbolt.Open(filepath.Join(t.TempDir(), "swaps"), 0700, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer boltdb.Close()
-
-	versionService, err := NewVersionService(boltdb)
+	mockVersionStore := &mockVersionStore{}
+	versionService, err := NewVersionService(mockVersionStore)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +40,6 @@ func Test_VersionService(t *testing.T) {
 	activeSwaps = &MockActiveSwaps{false}
 	err = versionService.SafeUpgrade(activeSwaps)
 	assert.NoError(t, err)
-
 }
 
 type MockActiveSwaps struct {
