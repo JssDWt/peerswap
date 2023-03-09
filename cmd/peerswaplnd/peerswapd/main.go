@@ -277,11 +277,11 @@ func run() error {
 
 	// setup swap services
 	log.Infof("using policy:\n%s", pol)
-	swapStore, err := swap.NewBboltStore(swapDb)
+	swapStore, err := bbolt_impl.NewBBoltSwapStore(swapDb)
 	if err != nil {
 		return err
 	}
-	requestedSwapStore, err := swap.NewRequestedSwapsStore(swapDb)
+	requestedSwapStore, err := bbolt_impl.NewBBoltRequestedSwapsStore(swapDb)
 	if err != nil {
 		return err
 	}

@@ -262,12 +262,12 @@ func run(ctx context.Context, lightningPlugin *clightning.ClightningClient) erro
 	log.Infof("using policy:\n%s", pol)
 
 	// Swap store.
-	swapStore, err := swap.NewBboltStore(swapDb)
+	swapStore, err := bbolt_impl.NewBBoltSwapStore(swapDb)
 	if err != nil {
 		return err
 	}
 
-	requestedSwapStore, err := swap.NewRequestedSwapsStore(swapDb)
+	requestedSwapStore, err := bbolt_impl.NewBBoltRequestedSwapsStore(swapDb)
 	if err != nil {
 		return err
 	}
