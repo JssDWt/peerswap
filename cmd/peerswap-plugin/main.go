@@ -10,12 +10,12 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"syscall"
 	"time"
 
 	"github.com/elementsproject/peerswap/isdev"
 	"github.com/elementsproject/peerswap/log"
 	"github.com/elementsproject/peerswap/version"
+	"golang.org/x/sys/unix"
 
 	"github.com/vulpemventures/go-elements/network"
 
@@ -722,7 +722,7 @@ func setPanicLogger() (func() error, error) {
 		return nil, err
 	}
 
-	err = syscall.Dup3(int(panicLogFile.Fd()), int(os.Stderr.Fd()), 0)
+	err = unix.Dup2(int(panicLogFile.Fd()), int(os.Stderr.Fd()))
 	if err != nil {
 		return nil, err
 	}
