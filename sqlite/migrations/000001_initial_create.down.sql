@@ -1,0 +1,11 @@
+DROP TABLE poll_info_assets;
+DROP TABLE poll_info;
+DROP TABLE requested_swaps;
+DROP TABLE cancel_messages;
+DROP TABLE coop_close_messages;
+DROP TABLE opening_tx_broadcasted_messages;
+DROP TABLE swap_out_agreement_messages;
+DROP TABLE swap_out_request_messages;
+DROP TABLE swap_in_agreement_messages;
+DROP TABLE swap_in_request_messages;
+DROP TABLE swaps;
