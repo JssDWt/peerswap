@@ -19,13 +19,13 @@ import (
 	"github.com/elementsproject/peerswap/isdev"
 	"github.com/elementsproject/peerswap/lnd"
 	"github.com/elementsproject/peerswap/log"
-	"github.com/elementsproject/peerswap/version"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/elementsproject/glightning/gbitcoin"
 	"github.com/elementsproject/glightning/gelements"
+
 	bbolt_impl "github.com/elementsproject/peerswap/bbolt"
 	"github.com/elementsproject/peerswap/cmd/peerswaplnd"
 	lnd_internal "github.com/elementsproject/peerswap/lnd"
@@ -34,6 +34,7 @@ import (
 	"github.com/elementsproject/peerswap/peerswaprpc"
 	"github.com/elementsproject/peerswap/policy"
 	"github.com/elementsproject/peerswap/poll"
+	sqlite_impl "github.com/elementsproject/peerswap/sqlite"
 	"github.com/elementsproject/peerswap/swap"
 	"github.com/elementsproject/peerswap/txwatcher"
 	"github.com/elementsproject/peerswap/wallet"
@@ -41,10 +42,10 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
 	"github.com/vulpemventures/go-elements/network"
-	"go.etcd.io/bbolt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/encoding/protojson"
+	_ "modernc.org/sqlite"
 )
 
 const (
@@ -104,7 +105,26 @@ func run() error {
 		return err
 	}
 	log.Infof("PeerSwap LND starting up with commit %s and cfg: %s", GitCommit, cfg)
-	log.Infof("DB version: %s, Protocol version: %d", version.GetCurrentVersion(), swap.PEERSWAP_PROTOCOL_VERSION)
+
+	// make sure the deprecated bbolt database is unused
+	err = bbolt_impl.CheckUnused(cfg.DataDir)
+	if err != nil {
+		return err
+	}
+
+	// db
+	sqliteDbFile := filepath.Join(cfg.DataDir, "swaps.db")
+	swapDb, err := sqlite_impl.OpenDatabase(sqliteDbFile)
+	if err != nil {
+		return err
+	}
+
+	newVersion, err := sqlite_impl.Migrate(swapDb)
+	if err != nil {
+		return err
+	}
+
+	log.Infof("DB version: %s, Protocol version: %d", newVersion, swap.PEERSWAP_PROTOCOL_VERSION)
 	if isdev.IsDev() {
 		log.Infof("Dev-mode enabled.")
 	}
@@ -263,12 +283,6 @@ func run() error {
 		return err
 	}
 
-	// db
-	swapDb, err := bbolt.Open(filepath.Join(cfg.DataDir, "swaps"), 0700, nil)
-	if err != nil {
-		return err
-	}
-
 	// policy
 	pol, err := policy.CreateFromFile(cfg.PolicyFile)
 	if err != nil {
@@ -277,11 +291,11 @@ func run() error {
 
 	// setup swap services
 	log.Infof("using policy:\n%s", pol)
-	swapStore, err := bbolt_impl.NewBBoltSwapStore(swapDb)
+	swapStore, err := sqlite_impl.NewSqliteSwapStore(swapDb)
 	if err != nil {
 		return err
 	}
-	requestedSwapStore, err := bbolt_impl.NewBBoltRequestedSwapsStore(swapDb)
+	requestedSwapStore, err := sqlite_impl.NewSqliteRequestedSwapStore(swapDb)
 	if err != nil {
 		return err
 	}
@@ -321,26 +335,12 @@ func run() error {
 		return err
 	}
 
-	// Try to upgrade version if needed
-	versionStore, err := bbolt_impl.NewBBoltVersionStore(swapDb)
-	if err != nil {
-		return err
-	}
-	versionService, err := version.NewVersionService(versionStore)
-	if err != nil {
-		return err
-	}
-	err = versionService.SafeUpgrade(swapStore)
-	if err != nil {
-		return err
-	}
-
 	err = swapService.RecoverSwaps()
 	if err != nil {
 		return err
 	}
 
-	pollStore, err := bbolt_impl.NewBBoltPollStore(swapDb)
+	pollStore, err := sqlite_impl.NewSqlitePollStore(swapDb)
 	if err != nil {
 		return err
 	}
