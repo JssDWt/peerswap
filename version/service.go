@@ -21,7 +21,7 @@ func NewVersionService(versionStore VersionStore) (*VersionService, error) {
 }
 
 // SafeUpgrade upgrades the peerswap version, only if no active swaps are running
-func (vs *VersionService) SafeUpgrade(swapService ActiveSwapGetter) error {
+func (vs *VersionService) SafeUpgrade(swapStore ActiveSwapGetter) error {
 	// first check if we need to upgrade
 	currentVersion, err := vs.versionStore.GetVersion()
 	if err != ErrDoesNotExist && err != nil {
@@ -34,7 +34,7 @@ func (vs *VersionService) SafeUpgrade(swapService ActiveSwapGetter) error {
 	}
 
 	// check if we have active swaps
-	hasActiveSwaps, err := swapService.HasActiveSwaps()
+	hasActiveSwaps, err := swapStore.HasActiveSwaps()
 	if err != nil {
 		return err
 	}

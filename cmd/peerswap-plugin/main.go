@@ -342,7 +342,7 @@ func run(ctx context.Context, lightningPlugin *clightning.ClightningClient) erro
 	if err != nil {
 		return err
 	}
-	err = versionService.SafeUpgrade(swapService)
+	err = versionService.SafeUpgrade(swapStore)
 	if err != nil {
 		return err
 	}

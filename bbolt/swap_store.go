@@ -204,6 +204,19 @@ func (p *BBoltSwapStore) ListAllByPeer(peer string) ([]*swap.SwapStateMachine, e
 	return swaps, nil
 }
 
+func (s *BBoltSwapStore) HasActiveSwaps() (bool, error) {
+	swaps, err := s.ListAll()
+	if err != nil {
+		return false, err
+	}
+	for _, swap := range swaps {
+		if !swap.IsFinished() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (p *BBoltSwapStore) idExists(id string) (bool, error) {
 	_, err := p.getById(id)
 	if err != nil {
