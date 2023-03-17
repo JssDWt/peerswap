@@ -32,10 +32,10 @@ import (
 	"github.com/elementsproject/peerswap/onchain"
 	"github.com/elementsproject/peerswap/policy"
 	"github.com/elementsproject/peerswap/poll"
+	sqlite_impl "github.com/elementsproject/peerswap/sqlite"
 	"github.com/elementsproject/peerswap/swap"
 	"github.com/elementsproject/peerswap/txwatcher"
 	"github.com/elementsproject/peerswap/wallet"
-	"go.etcd.io/bbolt"
 )
 
 var supportedAssets = []string{}
@@ -120,10 +120,6 @@ func outer() error {
 
 func run(ctx context.Context, lightningPlugin *clightning.ClightningClient) error {
 	log.Infof("PeerSwap starting up with commit %s", GitCommit)
-	log.Infof("DB version: %s, Protocol version: %d", version.GetCurrentVersion(), swap.PEERSWAP_PROTOCOL_VERSION)
-	if isdev.IsDev() {
-		log.Infof("Dev-mode enabled.")
-	}
 
 	config, err := lightningPlugin.GetConfig()
 	if err != nil {
@@ -133,6 +129,30 @@ func run(ctx context.Context, lightningPlugin *clightning.ClightningClient) erro
 	if err != nil {
 		return err
 	}
+
+	// make sure the deprecated bbolt database is unused
+	err = bbolt_impl.CheckUnused(config.DbPath)
+	if err != nil {
+		return err
+	}
+
+	// db
+	sqliteDbFile := filepath.Join(config.DbPath, "swaps.db")
+	swapDb, err := sqlite_impl.OpenDatabase(sqliteDbFile)
+	if err != nil {
+		return err
+	}
+
+	newVersion, err := sqlite_impl.Migrate(swapDb)
+	if err != nil {
+		return err
+	}
+
+	log.Infof("DB version: %s, Protocol version: %d", newVersion, swap.PEERSWAP_PROTOCOL_VERSION)
+	if isdev.IsDev() {
+		log.Infof("Dev-mode enabled.")
+	}
+
 	// setup services
 	nodeInfo, err := lightningPlugin.GetLightningRpc().GetInfo()
 	if err != nil {
@@ -248,12 +268,6 @@ func run(ctx context.Context, lightningPlugin *clightning.ClightningClient) erro
 		return errors.New("bad config, either liquid or bitcoin settings must be set")
 	}
 
-	// db
-	swapDb, err := bbolt.Open(filepath.Join(config.DbPath, "swaps"), 0700, nil)
-	if err != nil {
-		return err
-	}
-
 	// policy
 	pol, err := policy.CreateFromFile(config.PolicyPath)
 	if err != nil {
@@ -262,12 +276,12 @@ func run(ctx context.Context, lightningPlugin *clightning.ClightningClient) erro
 	log.Infof("using policy:\n%s", pol)
 
 	// Swap store.
-	swapStore, err := bbolt_impl.NewBBoltSwapStore(swapDb)
+	swapStore, err := sqlite_impl.NewSqliteSwapStore(swapDb)
 	if err != nil {
 		return err
 	}
 
-	requestedSwapStore, err := bbolt_impl.NewBBoltRequestedSwapsStore(swapDb)
+	requestedSwapStore, err := sqlite_impl.NewSqliteRequestedSwapStore(swapDb)
 	if err != nil {
 		return err
 	}
@@ -317,7 +331,7 @@ func run(ctx context.Context, lightningPlugin *clightning.ClightningClient) erro
 		return err
 	}
 
-	pollStore, err := bbolt_impl.NewBBoltPollStore(swapDb)
+	pollStore, err := sqlite_impl.NewSqlitePollStore(swapDb)
 	if err != nil {
 		return err
 	}
@@ -332,20 +346,6 @@ func run(ctx context.Context, lightningPlugin *clightning.ClightningClient) erro
 	// FIXME: Once we reworked the recovery service (non-blocking) we want to
 	// set ready after the recovery to avoid race conditions.
 	lightningPlugin.SetReady()
-
-	// Try to upgrade version if needed
-	versionStore, err := bbolt_impl.NewBBoltVersionStore(swapDb)
-	if err != nil {
-		return err
-	}
-	versionService, err := version.NewVersionService(versionStore)
-	if err != nil {
-		return err
-	}
-	err = versionService.SafeUpgrade(swapStore)
-	if err != nil {
-		return err
-	}
 
 	// Check for active swaps and compare with version
 	err = swapService.RecoverSwaps()
