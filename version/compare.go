@@ -32,13 +32,13 @@ func CompareVersionStrings(a, b string) (bool, error) {
 	for i := range partsA {
 		n, err := strconv.Atoi(partsA[i])
 		if err != nil {
-			return false, fmt.Errorf("malformed version string %s: %w", version, err)
+			return false, fmt.Errorf("malformed version string %s: %w", a, err)
 		}
 		numericA = append(numericA, n)
 
 		n, err = strconv.Atoi(partsB[i])
 		if err != nil {
-			return false, fmt.Errorf("malformed version string %s: %w", version, err)
+			return false, fmt.Errorf("malformed version string %s: %w", b, err)
 		}
 		numericB = append(numericB, n)
 	}
